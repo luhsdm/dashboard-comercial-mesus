@@ -28,6 +28,20 @@ const CLIENTS = [
   { id: "C164", name: "Dra Lea", sid: "1hQu7EiDa6hI0Wr7WVdcSBNg2eiaLucOw6P_mDgNkd0Y" },
 ];
 
-const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dev"];
+const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-export { CLIENTS, MONTHS };
+const MONTH_NAMES = {
+  "jan.": 0, "fev.": 1, "mar.": 2, "abr.": 3, "mai.": 4, "jun.": 5,
+  "jul.": 6, "ago.": 7, "set.": 8, "out.": 9, "nov.": 10, "dez.": 11,
+};
+
+function monthIndex(row) {
+  const name = (row[6] || "").toLowerCase().trim();
+  return MONTH_NAMES[name] ?? -1;
+}
+
+function yearStr(row) {
+  return String(row[17] || "");
+}
+
+export { CLIENTS, MONTHS, monthIndex, yearStr };

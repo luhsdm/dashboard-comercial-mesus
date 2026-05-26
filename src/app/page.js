@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { CLIENTS, MONTHS } from './data';
+import { CLIENTS, MONTHS, monthIndex } from './data';
 
 const COLORS = ["#4f8ef7", "#f7a84f", "#4fcf7a", "#f74f6f", "#a84ff7"];
 const CRM_SHEET = "🧙🏻‍♂️ CRM";
@@ -28,6 +28,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState({ rows: [], total: 0, agend: 0, comp: 0, fech: 0, receita: 0, ticket: 0, taxaConv: 0, gasto: 0, meses_agend: [], meses_comp: [], meses_fech: [], meses_inv: [] });
   const [year, setYear] = useState("Todos");
+  const [month, setMonth] = useState("Todos");
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
   const chartRef2 = useRef(null);
@@ -50,46 +51,49 @@ export default function Home() {
     return { agendou, compareceu, ganhou, receita, status };
   }, []);
 
-  const fetchData = useCallback(async (client, selectedYear) => {
+  const fetchData = useCallback(async (client, selectedYear, selectedMonth) => {
     if (!client) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/sheets?sid=${client.sid}&sheet=${encodeURIComponent(CRM_SHEET)}`);
       const json = await res.json();
-      const rows = json.values || [];
-
-      let filtered = rows.slice(1);
+      let rows = json.values || [];
+      rows = rows.slice(1);
 
       if (selectedYear && selectedYear !== 'Todos') {
-        filtered = filtered.filter(r => String(r[17]) === selectedYear);
+        rows = rows.filter(r => String(r[17]) === selectedYear);
+      }
+      if (selectedMonth && selectedMonth !== 'Todos') {
+        const monthAbbr = MONTHS[parseInt(selectedMonth) - 1].toLowerCase().substring(0, 3) + ".";
+        rows = rows.filter(r => (r[6] || "").toLowerCase().trim() === monthAbbr);
       }
 
-      const mesAgend = Array(12).fill(0);
-      const mesComp = Array(12).fill(0);
-      const mesFech = Array(12).fill(0);
-      const mesInv = Array(12).fill(0);
+      const allMesAgend = Array(12).fill(0);
+      const allMesComp = Array(12).fill(0);
+      const allMesFech = Array(12).fill(0);
+      const allMesInv = Array(12).fill(0);
 
-      filtered.forEach(r => {
+      rows.forEach(r => {
         const pipeline = getStatusPipeline(r);
-        const mes = parseInt(r[16]) - 1;
-        if (mes >= 0 && mes < 12) {
-          if (pipeline.status === 'agendado' || r[20]) mesAgend[mes]++;
-          if (pipeline.status === 'compareceu' || r[21]) mesComp[mes]++;
+        const mes = monthIndex(r);
+        if (mes >= 0) {
+          if (pipeline.status === 'agendado' || r[20]) allMesAgend[mes]++;
+          if (pipeline.status === 'compareceu' || r[21]) allMesComp[mes]++;
           if (pipeline.status === 'venda_fechada') {
-            mesFech[mes]++;
-            mesInv[mes] += pipeline.receita;
+            allMesFech[mes]++;
+            allMesInv[mes] += pipeline.receita;
           }
         }
       });
 
-      const agend = filtered.filter(r => getStatusPipeline(r).status === 'agendado' || getStatusPipeline(r).status === 'compareceu' || getStatusPipeline(r).status === 'venda_fechada').length;
-      const comp = filtered.filter(r => getStatusPipeline(r).status === 'compareceu' || getStatusPipeline(r).status === 'venda_fechada').length;
-      const fech = filtered.filter(r => getStatusPipeline(r).status === 'venda_fechada').length;
-      const receita = filtered.reduce((s, r) => s + getStatusPipeline(r).receita, 0);
+      const agend = rows.filter(r => getStatusPipeline(r).status === 'agendado' || getStatusPipeline(r).status === 'compareceu' || getStatusPipeline(r).status === 'venda_fechada').length;
+      const comp = rows.filter(r => getStatusPipeline(r).status === 'compareceu' || getStatusPipeline(r).status === 'venda_fechada').length;
+      const fech = rows.filter(r => getStatusPipeline(r).status === 'venda_fechada').length;
+      const receita = rows.reduce((s, r) => s + getStatusPipeline(r).receita, 0);
       const ticket = fech > 0 ? receita / fech : 0;
       const taxaConv = agend > 0 ? (fech / agend) * 100 : 0;
 
-      setData({ rows: filtered, total: filtered.length, agend, comp, fech, receita, ticket, taxaConv, gasto: 0, meses_agend: mesAgend, meses_comp: mesComp, meses_fech: mesFech, meses_inv: mesInv });
+      setData({ rows, total: rows.length, agend, comp, fech, receita, ticket, taxaConv, gasto: 0, meses_agend: allMesAgend, meses_comp: allMesComp, meses_fech: allMesFech, meses_inv: allMesInv });
     } catch (e) {
       console.error(e);
       setData({ rows: [], total: 0, agend: 0, comp: 0, fech: 0, receita: 0, ticket: 0, taxaConv: 0, gasto: 0, meses_agend: Array(12).fill(0), meses_comp: Array(12).fill(0), meses_fech: Array(12).fill(0), meses_inv: Array(12).fill(0) });
@@ -99,8 +103,8 @@ export default function Home() {
   }, [getStatusPipeline]);
 
   useEffect(() => {
-    if (selected) fetchData(selected, year);
-  }, [selected, year, fetchData]);
+    if (selected) fetchData(selected, year, month);
+  }, [selected, year, month, fetchData]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -141,6 +145,10 @@ export default function Home() {
   }, [data]);
 
   const uniqueYears = ["Todos", ...new Set(data.rows.map(r => String(r[17])).filter(Boolean))].slice(0, 6);
+  const uniqueMonths = ["Todos", ...new Set(data.rows.map(r => monthIndex(r) + 1).filter(m => m > 0))].sort((a, b) => {
+    if (a === 'Todos') return -1; if (b === 'Todos') return 1;
+    return a - b;
+  });
 
   return (
     <div style={{ background: '#0a0e1a', minHeight: '100vh', color: '#e8f0ff', fontFamily: 'system-ui, sans-serif', width: '100%', maxWidth: '100%' }}>
@@ -150,9 +158,13 @@ export default function Home() {
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <select value={year} onChange={e => setYear(e.target.value)}
             style={{ background: '#141d2e', border: '1px solid rgba(99,179,237,.13)', color: '#6b7fa3', padding: '4px 8px', borderRadius: '7px', fontSize: '10px', cursor: 'pointer', outline: 'none' }}>
-            {uniqueYears.map(y => <option key={y} value={y}>{y === 'Todos' ? 'Todos' : y}</option>)}
+            {uniqueYears.map(y => <option key={y} value={y}>{y === 'Todos' ? 'Todos os Anos' : y}</option>)}
           </select>
-          {selected && <button onClick={() => fetchData(selected, year)} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'transparent', border: '1px solid rgba(99,179,237,.28)', color: '#38bdf8', padding: '5px 12px', borderRadius: '7px', fontSize: '11px', cursor: 'pointer' }}>&#8635; Atualizar</button>}
+          <select value={month} onChange={e => setMonth(e.target.value)}
+            style={{ background: '#141d2e', border: '1px solid rgba(99,179,237,.13)', color: '#6b7fa3', padding: '4px 8px', borderRadius: '7px', fontSize: '10px', cursor: 'pointer', outline: 'none' }}>
+            {uniqueMonths.map(m => <option key={m} value={m}>{m === 'Todos' ? 'Todos os Meses' : MONTHS[parseInt(m) - 1] || m}</option>)}
+          </select>
+          {selected && <button onClick={() => fetchData(selected, year, month)} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'transparent', border: '1px solid rgba(99,179,237,.28)', color: '#38bdf8', padding: '5px 12px', borderRadius: '7px', fontSize: '11px', cursor: 'pointer' }}>&#8635; Atualizar</button>}
         </div>
       </div>
 
