@@ -28,9 +28,7 @@ export default function Home() {
     if (!client) return;
     setLoading(true);
     try {
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${client.sid}/values/Sheet1?key=${apiKey}`;
-      const res = await fetch(url);
+      const res = await fetch(`/api/sheets?sid=${client.sid}`);
       const json = await res.json();
       const rows = json.values || [];
 
