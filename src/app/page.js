@@ -17,6 +17,11 @@ function fmtn(v) {
   return Number(v).toLocaleString("pt-BR");
 }
 
+function fmtpct(v) {
+  if (v == null || isNaN(v)) return "0%";
+  return v.toFixed(1) + "%";
+}
+
 function parseCurrency(v) {
   if (!v) return 0;
   const num = parseFloat(String(v).replace(/[R$\s.]/g, '').replace(',', '.'));
@@ -29,10 +34,8 @@ export default function Home() {
   const [data, setData] = useState({ rows: [], total: 0, agend: 0, comp: 0, fech: 0, receita: 0, ticket: 0, taxaConv: 0, gasto: 0, meses_agend: [], meses_comp: [], meses_fech: [], meses_inv: [] });
   const [year, setYear] = useState("Todos");
   const [month, setMonth] = useState("Todos");
+  const [dim, setDim] = useState("Campanha");
   const chartRef = useRef(null);
-  const chartInstance = useRef(null);
-  const chartRef2 = useRef(null);
-  const chartInstance2 = useRef(null);
 
   const getStatusPipeline = useCallback((row) => {
     const agendou = row[10] || '';
@@ -107,40 +110,21 @@ export default function Home() {
   }, [selected, year, month, fetchData]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !chartRef.current) return;
     import('chart.js').then(({ Chart, registerables }) => {
       Chart.register(...registerables);
-
-      if (chartInstance.current) chartInstance.current.destroy();
-      if (chartInstance2.current) chartInstance2.current.destroy();
-
-      if (chartRef.current && data.meses_agend.some(v => v > 0)) {
-        chartInstance.current = new Chart(chartRef.current, {
-          type: 'bar',
-          data: {
-            labels: MONTHS,
-            datasets: [
-              { label: 'Agendamentos', data: data.meses_agend, backgroundColor: COLORS[0] + '88', borderColor: COLORS[0], borderWidth: 1 },
-              { label: 'Comparecimentos', data: data.meses_comp, backgroundColor: COLORS[1] + '88', borderColor: COLORS[1], borderWidth: 1 },
-              { label: 'Vendas', data: data.meses_fech, backgroundColor: COLORS[2] + '88', borderColor: COLORS[2], borderWidth: 1 },
-            ],
-          },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8ba3d4', font: { size: 10 } } } }, scales: { x: { ticks: { color: '#6b7fa3', font: { size: 9 } } }, y: { ticks: { color: '#6b7fa3', font: { size: 9 } } } } },
-        });
-      }
-
-      if (chartRef2.current && data.meses_inv.some(v => v > 0)) {
-        chartInstance2.current = new Chart(chartRef2.current, {
-          type: 'line',
-          data: {
-            labels: MONTHS,
-            datasets: [
-              { label: 'Receita', data: data.meses_inv, borderColor: COLORS[2], backgroundColor: COLORS[2] + '22', fill: true, tension: 0.3, pointRadius: 2 },
-            ],
-          },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8ba3d4', font: { size: 10 } } } }, scales: { x: { ticks: { color: '#6b7fa3', font: { size: 9 } } }, y: { ticks: { color: '#6b7fa3', font: { size: 9 } } } } },
-        });
-      }
+      if (chartRef._chart) chartRef._chart.destroy();
+      if (!data.meses_inv.some(v => v > 0)) return;
+      chartRef._chart = new Chart(chartRef.current, {
+        type: 'line',
+        data: {
+          labels: MONTHS,
+          datasets: [
+            { label: 'Receita', data: data.meses_inv, borderColor: COLORS[2], backgroundColor: COLORS[2] + '22', fill: true, tension: 0.3, pointRadius: 2 },
+          ],
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8ba3d4', font: { size: 10 } } } }, scales: { x: { ticks: { color: '#6b7fa3', font: { size: 9 } } }, y: { ticks: { color: '#6b7fa3', font: { size: 9 } } } } },
+      });
     });
   }, [data]);
 
@@ -221,15 +205,73 @@ export default function Home() {
               ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-              <div style={{ background: '#111827', border: '1px solid rgba(99,179,237,.08)', borderRadius: '14px', padding: '20px', height: '260px' }}>
-                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#6b7fa3', marginBottom: '12px' }}>Funil Mensal</div>
-                <div style={{ height: '200px' }}><canvas ref={chartRef} /></div>
-              </div>
-              <div style={{ background: '#111827', border: '1px solid rgba(99,179,237,.08)', borderRadius: '14px', padding: '20px', height: '260px' }}>
-                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#6b7fa3', marginBottom: '12px' }}>Receita Mensal</div>
-                <div style={{ height: '200px' }}><canvas ref={chartRef2} /></div>
-              </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#6b7fa3' }}>Desempenho por</span>
+              {["Campanha", "Conjunto", "Anúncio", "Criativo", "SourceID", "Plataforma"].map(d => (
+                <button key={d} onClick={() => setDim(d)}
+                  style={{
+                    padding: '3px 10px', borderRadius: '14px', fontSize: '10px', fontWeight: 500, cursor: 'pointer',
+                    background: dim === d ? '#1e2d4a' : '#141d2e',
+                    border: dim === d ? '1px solid rgba(79,142,247,.4)' : '1px solid rgba(99,179,237,.13)',
+                    color: dim === d ? '#8bb8ff' : '#6b7fa3'
+                  }}>
+                  {d}
+                </button>
+              ))}
+            </div>
+            {(() => {
+              const DIM_COL = { Campanha: 18, Conjunto: 19, Anúncio: 20, Criativo: 21, SourceID: 22, Plataforma: 23 };
+              const groups = {};
+              data.rows.forEach(r => {
+                const val = (r[DIM_COL[dim]] || "").trim();
+                if (!val) return;
+                if (!groups[val]) groups[val] = { leads: 0, agend: 0, comp: 0, vendas: 0, receita: 0 };
+                groups[val].leads++;
+                const p = getStatusPipeline(r);
+                if (p.status === 'agendado' || p.status === 'compareceu' || p.status === 'venda_fechada') groups[val].agend++;
+                if (p.status === 'compareceu' || p.status === 'venda_fechada') groups[val].comp++;
+                if (p.status === 'venda_fechada') { groups[val].vendas++; groups[val].receita += p.receita; }
+              });
+              const sorted = Object.entries(groups).sort((a, b) => b[1].leads - a[1].leads);
+              if (sorted.length === 0) return null;
+              return (
+                <div style={{ background: '#111827', border: '1px solid rgba(99,179,237,.08)', borderRadius: '14px', padding: '16px', overflowX: 'auto', marginBottom: '20px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(99,179,237,.08)', color: '#6b7fa3', fontSize: '9px', fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', textAlign: 'left' }}>
+                        <th style={{ padding: '6px 10px' }}>{dim}</th>
+                        <th style={{ padding: '6px 10px' }}>Leads</th>
+                        <th style={{ padding: '6px 10px' }}>Agend.</th>
+                        <th style={{ padding: '6px 10px' }}>Comp.</th>
+                        <th style={{ padding: '6px 10px' }}>Vendas</th>
+                        <th style={{ padding: '6px 10px' }}>Receita</th>
+                        <th style={{ padding: '6px 10px' }}>Tx Agend</th>
+                        <th style={{ padding: '6px 10px' }}>Tx Comp</th>
+                        <th style={{ padding: '6px 10px' }}>Tx Conv</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map(([name, g]) => (
+                        <tr key={name} style={{ borderBottom: '1px solid rgba(99,179,237,.04)' }}>
+                          <td style={{ padding: '6px 10px', color: '#8bb8ff', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={name}>{name}</td>
+                          <td style={{ padding: '6px 10px' }}>{fmtn(g.leads)}</td>
+                          <td style={{ padding: '6px 10px' }}>{fmtn(g.agend)}</td>
+                          <td style={{ padding: '6px 10px' }}>{fmtn(g.comp)}</td>
+                          <td style={{ padding: '6px 10px', color: g.vendas > 0 ? '#4fcf7a' : '#6b7fa3' }}>{fmtn(g.vendas)}</td>
+                          <td style={{ padding: '6px 10px', color: g.receita > 0 ? '#4fcf7a' : '#6b7fa3' }}>{fmt(g.receita)}</td>
+                          <td style={{ padding: '6px 10px' }}>{g.leads > 0 ? fmtpct(g.agend / g.leads * 100) : '-'}</td>
+                          <td style={{ padding: '6px 10px' }}>{g.agend > 0 ? fmtpct(g.comp / g.agend * 100) : '-'}</td>
+                          <td style={{ padding: '6px 10px' }}>{g.comp > 0 ? fmtpct(g.vendas / g.comp * 100) : '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+            <div style={{ background: '#111827', border: '1px solid rgba(99,179,237,.08)', borderRadius: '14px', padding: '20px', height: '260px', marginBottom: '20px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#6b7fa3', marginBottom: '12px' }}>Receita Mensal</div>
+              <div style={{ height: '200px' }}><canvas ref={chartRef} /></div>
             </div>
 
             {data.rows.length > 0 && (
