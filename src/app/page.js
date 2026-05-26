@@ -35,11 +35,11 @@ export default function Home() {
   const chartInstance2 = useRef(null);
 
   const getStatusPipeline = useCallback((row) => {
-    const agendou = row[8] || '';
-    const compareceu = row[10] || '';
-    const ganhou = row[11] || '';
-    const receitaC = parseCurrency(row[13]);
-    const receitaT = parseCurrency(row[14]);
+    const agendou = row[10] || '';
+    const compareceu = row[12] || '';
+    const ganhou = row[13] || '';
+    const receitaC = parseCurrency(row[16]);
+    const receitaT = parseCurrency(row[17]);
     const receita = receitaC + receitaT;
 
     let status = 'lead_novo';
@@ -61,11 +61,11 @@ export default function Home() {
       rows = rows.slice(1);
 
       if (selectedYear && selectedYear !== 'Todos') {
-        rows = rows.filter(r => String(r[17]) === selectedYear);
+        rows = rows.filter(r => String(r[26] || r[0]?.match(/\b(20\d{2})\b/)?.[1] || "") === selectedYear);
       }
       if (selectedMonth && selectedMonth !== 'Todos') {
         const monthAbbr = MONTHS[parseInt(selectedMonth) - 1].toLowerCase().substring(0, 3) + ".";
-        rows = rows.filter(r => (r[6] || "").toLowerCase().trim() === monthAbbr);
+        rows = rows.filter(r => (r[8] || "").toLowerCase().trim() === monthAbbr);
       }
 
       const allMesAgend = Array(12).fill(0);
@@ -77,8 +77,8 @@ export default function Home() {
         const pipeline = getStatusPipeline(r);
         const mes = monthIndex(r);
         if (mes >= 0) {
-          if (pipeline.status === 'agendado' || r[20]) allMesAgend[mes]++;
-          if (pipeline.status === 'compareceu' || r[21]) allMesComp[mes]++;
+          if (pipeline.status === 'agendado') allMesAgend[mes]++;
+          if (pipeline.status === 'compareceu') allMesComp[mes]++;
           if (pipeline.status === 'venda_fechada') {
             allMesFech[mes]++;
             allMesInv[mes] += pipeline.receita;
@@ -144,7 +144,7 @@ export default function Home() {
     });
   }, [data]);
 
-  const uniqueYears = ["Todos", ...new Set(data.rows.map(r => String(r[17])).filter(Boolean))].slice(0, 6);
+  const uniqueYears = ["Todos", ...new Set(data.rows.map(r => String(r[26] || r[0]?.match(/\b(20\d{2})\b/)?.[1] || "")).filter(Boolean))].slice(0, 6);
   const uniqueMonths = ["Todos", ...new Set(data.rows.map(r => monthIndex(r) + 1).filter(m => m > 0))].sort((a, b) => {
     if (a === 'Todos') return -1; if (b === 'Todos') return 1;
     return a - b;

@@ -36,12 +36,12 @@ const MONTH_NAMES = {
 };
 
 function monthIndex(row) {
-  const name = (row[6] || "").toLowerCase().trim();
+  const name = (row[8] || "").toLowerCase().trim();
   return MONTH_NAMES[name] ?? -1;
 }
 
 function yearStr(row) {
-  return String(row[17] || "");
+  return String(row[26] || row[0]?.match(/\b(20\d{2})\b/)?.[1] || "");
 }
 
 export { CLIENTS, MONTHS, monthIndex, yearStr };
