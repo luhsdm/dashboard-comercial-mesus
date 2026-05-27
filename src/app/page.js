@@ -32,6 +32,7 @@ export default function Home() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState({ rows: [], total: 0, agend: 0, comp: 0, fech: 0, receita: 0, ticket: 0, taxaConv: 0, gasto: 0, meses_agend: [], meses_comp: [], meses_fech: [], meses_inv: [] });
+  const [allRows, setAllRows] = useState([]); // todas as linhas sem filtro — fonte dos dropdowns
   const [year, setYear] = useState("Todos");
   const [month, setMonth] = useState("Todos");
   const [dim, setDim] = useState("Campanha");
@@ -62,6 +63,9 @@ export default function Home() {
       const json = await res.json();
       let rows = json.values || [];
       rows = rows.slice(1);
+
+      // Salva todas as linhas antes de filtrar — usado para popular os dropdowns
+      setAllRows(rows);
 
       if (selectedYear && selectedYear !== 'Todos') {
         rows = rows.filter(r => String(r[26] || r[0]?.match(/\b(20\d{2})\b/)?.[1] || "") === selectedYear);
@@ -128,8 +132,10 @@ export default function Home() {
     });
   }, [data]);
 
-  const uniqueYears = ["Todos", ...new Set(data.rows.map(r => String(r[26] || r[0]?.match(/\b(20\d{2})\b/)?.[1] || "")).filter(Boolean))].slice(0, 6);
-  const uniqueMonths = ["Todos", ...new Set(data.rows.map(r => monthIndex(r) + 1).filter(m => m > 0))].sort((a, b) => {
+  // Usa allRows (dados completos sem filtro) para que os dropdowns
+  // mostrem TODAS as opções do cliente, independente do filtro ativo.
+  const uniqueYears = ["Todos", ...new Set(allRows.map(r => String(r[26] || r[0]?.match(/\b(20\d{2})\b/)?.[1] || "")).filter(Boolean))].slice(0, 6);
+  const uniqueMonths = ["Todos", ...new Set(allRows.map(r => monthIndex(r) + 1).filter(m => m > 0))].sort((a, b) => {
     if (a === 'Todos') return -1; if (b === 'Todos') return 1;
     return a - b;
   });
@@ -156,7 +162,16 @@ export default function Home() {
         <div style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#6b7fa3', marginBottom: '8px' }}>Selecionar cliente</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
           {CLIENTS.map(c => (
-            <button key={c.id} onClick={() => setSelected(c)}
+            <button key={c.id} onClick={() => {
+              if (c.id !== selected?.id) {
+                // Reseta os filtros ao trocar de cliente para evitar
+                // que filtros do cliente anterior causem resultado zerado
+                setYear("Todos");
+                setMonth("Todos");
+                setAllRows([]);
+              }
+              setSelected(c);
+            }}
               style={{
                 padding: '4px 10px', borderRadius: '18px', fontSize: '10px', fontWeight: 500, cursor: 'pointer', transition: 'all .15s', flexShrink: 0,
                 background: selected?.id === c.id ? '#1e2d4a' : '#141d2e',
