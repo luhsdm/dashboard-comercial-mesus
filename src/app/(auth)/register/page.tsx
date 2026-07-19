@@ -39,7 +39,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="text-[10px] font-bold tracking-[.15em] uppercase text-brand-400 mb-1">
-            Track Mesus Media
+            VibeCRM
           </div>
           <p className="text-xs text-brand-50/40">Crie sua conta</p>
         </div>

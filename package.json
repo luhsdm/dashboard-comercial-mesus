@@ -1,5 +1,5 @@
 {
-  "name": "track-mesus-media",
+  "name": "vibecrm",
   "version": "2.0.0",
   "private": true,
   "scripts": {
@@ -13,11 +13,11 @@
     "postinstall": "npx prisma generate"
   },
   "prisma": {
-    "seed": "node prisma/seed.mjs"
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
-    "@stripe/stripe-js": "^4.11.0",
+    "@stripe/stripe-js": "^2.4.0",
     "bcryptjs": "^2.4.3",
     "chart.js": "^4.4.1",
     "next": "14.2.21",
