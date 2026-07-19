@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       topic: topic || 'general',
       tone: 'professional',
       industry: 'general',
-      includeHashtags: true,
+      hashtags: true,
     });
     return NextResponse.json({ suggestion });
   }
